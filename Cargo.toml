@@ -1,0 +1,14 @@
+[workspace]
+resolver = "3"
+
+members = ["crates/*"]
+
+# Shared settings inherited by member crates via `field.workspace = true`.
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+# Shared dependencies. Members opt in with `dep.workspace = true`,
+# keeping versions aligned across the workspace.
+[workspace.dependencies]

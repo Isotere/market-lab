@@ -1,0 +1,48 @@
+name: Rust CI
+
+# Quoted to stop YAML 1.1 from coercing `on` to boolean true (IDE false-positive).
+"on":
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+
+# Least privilege: workflow only reads the repo.
+permissions:
+  contents: read
+
+# Cancel superseded runs on the same ref to save minutes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # OS-independent checks: run once on ubuntu only (cheap, fast-fail).
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all --check
+      # --workspace lints every member crate.
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+
+  # Build + test across OS matrix.
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # --workspace builds and tests all member crates.
+      - run: cargo build --workspace --verbose
+      - run: cargo test --workspace --verbose
