@@ -1,14 +1,11 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+pub mod company;
+pub mod instrument;
+pub mod journal_entry;
+pub mod market_event;
+pub mod source;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub use company::*;
+pub use instrument::*;
+pub use journal_entry::*;
+pub use market_event::*;
+pub use source::*;
