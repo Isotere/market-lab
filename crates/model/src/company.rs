@@ -1,47 +1,60 @@
-/// Приоритет компании в личной системе анализа.
+use thiserror::Error;
+
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum CompanyError {
+    #[error("ticker cannot be empty")]
+    EmptyTicker,
+
+    #[error("company name cannot be empty")]
+    EmptyName,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CompanyPriority {
-    /// Компания в основном списке для первичного анализа.
-    Primary,
-    /// Компания интересна, но пока только под наблюдением.
+pub enum Market {
+    Moex,
+    Spb,
+    Nasdaq,
+    Other,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompanyStatus {
     Watch,
-    /// Компания не подходит под текущие критерии или имеет низкий приоритет.
-    Outsider,
+    Active,
+    Archive,
 }
 
 /// Эмитент или бизнес, который анализируется в `market-lab`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Company {
-    /// Внутренний идентификатор компании после сохранения в БД.
     id: Option<u64>,
-    /// Основной тикер компании, удобный для поиска и отображения.
     ticker: String,
-    /// Название компании.
     name: String,
-    /// Короткое описание бизнеса простыми словами.
-    description: String,
-    /// Сильные стороны бизнеса или инвестиционного кейса.
-    strengths: Vec<String>,
-    /// Слабые стороны, риски и спорные места кейса.
-    weaknesses: Vec<String>,
-    /// Короткая заметка об оценке: дешево, дорого, справедливо или что проверить.
-    valuation_note: Option<String>,
-    /// Текущий приоритет компании в личном анализе.
-    priority: CompanyPriority,
+    market: Market,
+    sector: Option<String>,
+    status: CompanyStatus,
+    note: Option<String>,
 }
 
 impl Company {
-    pub fn new(ticker: &str, name: &str, description: String) -> Self {
-        Company {
+    pub fn new(ticker: &str, name: &str, market: Market) -> Result<Company, CompanyError> {
+        if ticker.trim().is_empty() {
+            return Err(CompanyError::EmptyTicker);
+        }
+
+        if name.trim().is_empty() {
+            return Err(CompanyError::EmptyName);
+        }
+
+        Ok(Company {
             id: None,
             ticker: ticker.to_string(),
             name: name.to_string(),
-            description,
-            strengths: Vec::new(),
-            weaknesses: Vec::new(),
-            valuation_note: None,
-            priority: CompanyPriority::Watch,
-        }
+            market,
+            sector: None,
+            status: CompanyStatus::Watch,
+            note: None,
+        })
     }
 
     pub fn id(&self) -> Option<u64> {
@@ -56,24 +69,20 @@ impl Company {
         &self.name
     }
 
-    pub fn description(&self) -> &str {
-        &self.description
+    pub fn market(&self) -> Market {
+        self.market
     }
 
-    pub fn strengths(&self) -> &[String] {
-        &self.strengths
+    pub fn status(&self) -> CompanyStatus {
+        self.status
     }
 
-    pub fn weaknesses(&self) -> &[String] {
-        &self.weaknesses
+    pub fn sector(&self) -> Option<&str> {
+        self.sector.as_deref()
     }
 
-    pub fn valuation_note(&self) -> Option<&str> {
-        self.valuation_note.as_deref()
-    }
-
-    pub fn priority(&self) -> CompanyPriority {
-        self.priority
+    pub fn note(&self) -> Option<&str> {
+        self.note.as_deref()
     }
 }
 
@@ -82,16 +91,43 @@ mod tests {
     use super::*;
 
     #[test]
-    fn new_company_has_identity_and_default_priority() {
-        let company = Company::new("SBER", "Sberbank", "Largest Russian bank".to_string());
+    fn new_company_keeps_identity_and_uses_default_state() {
+        let company = Company::new("SBER", "Sberbank", Market::Moex).unwrap();
 
         assert_eq!(company.id(), None);
         assert_eq!(company.ticker(), "SBER");
         assert_eq!(company.name(), "Sberbank");
-        assert_eq!(company.description(), "Largest Russian bank");
-        assert_eq!(company.priority(), CompanyPriority::Watch);
-        assert!(company.strengths().is_empty());
-        assert!(company.weaknesses().is_empty());
-        assert_eq!(company.valuation_note(), None);
+        assert_eq!(company.market(), Market::Moex);
+        assert_eq!(company.sector(), None);
+        assert_eq!(company.status(), CompanyStatus::Watch);
+        assert_eq!(company.note(), None);
+    }
+
+    #[test]
+    fn new_company_rejects_empty_ticker() {
+        let result = Company::new("", "Sberbank", Market::Moex);
+
+        assert_eq!(result, Err(CompanyError::EmptyTicker));
+    }
+
+    #[test]
+    fn new_company_rejects_whitespace_only_ticker() {
+        let result = Company::new(" \t\n", "Sberbank", Market::Moex);
+
+        assert_eq!(result, Err(CompanyError::EmptyTicker));
+    }
+
+    #[test]
+    fn new_company_rejects_empty_name() {
+        let result = Company::new("SBER", "", Market::Moex);
+
+        assert_eq!(result, Err(CompanyError::EmptyName));
+    }
+
+    #[test]
+    fn new_company_rejects_whitespace_only_name() {
+        let result = Company::new("SBER", " \t\n", Market::Moex);
+
+        assert_eq!(result, Err(CompanyError::EmptyName));
     }
 }
